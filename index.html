@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>肾病营养师 · 优特能</title>
     <style>
-        /* 样式部分与您原有代码完全一致，此处省略以节省篇幅 */
+        /* 全局样式，主色调 #4a90e2 */
         * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { background:#eef3f8; min-height:100vh; display:flex; justify-content:center; padding:12px; }
         #app { max-width:500px; width:100%; background:white; border-radius:32px; box-shadow:0 20px 40px rgba(0,20,40,0.15); padding:20px 16px 30px; position:relative; }
@@ -55,7 +55,7 @@
         .slider-item label { display:flex; justify-content:space-between; font-weight:600; color:#1a4b6d; }
         .slider-item input[type=range] { width:100%; margin:8px 0; -webkit-appearance:none; height:8px; background:#d0e0f0; border-radius:10px; outline:none; }
         .slider-item input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; background:#4a90e2; border-radius:50%; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
-        .slider-value { font-weight:700; color:#0b4b6b; }
+        .slider-value { font-weight:700; color:#0b4b6d; }
         .slider-actions { display:flex; gap:10px; margin-top:16px; }
         .slider-actions button { flex:1; }
         .footnote { text-align:center; font-size:12px; color:#7b93aa; margin-top:20px; }
@@ -64,15 +64,9 @@
         .qr-text { font-size:12px; color:#4a90e2; font-weight:500; margin-top:6px; }
         .qr-sub { font-size:10px; color:#999; margin-top:2px; }
     </style>
-    <!-- 百度统计代码（保持不变，但增加一个初始化事件） -->
+    <!-- 百度统计代码 - 初始化数组（必须保留，供事件埋点使用） -->
     <script>
     var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "https://hm.baidu.com/hm.js?884450db1def54da4f52f6d8253a70f9";
-      var s = document.getElementsByTagName("script")[0]; 
-      s.parentNode.insertBefore(hm, s);
-    })();
     // 页面加载完成后发送一个自定义事件，用于验证统计是否工作（可选）
     window.addEventListener('load', function() {
         if (typeof _hmt !== 'undefined') {
@@ -189,8 +183,18 @@
     </div>
 </div>
 
+<!-- 百度统计脚本 - 放在body结束前（符合百度检查要求） -->
 <script>
-// 以下为完整的核心逻辑（增加了百度统计事件埋点）
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?518c1a8f2fbf8068280278370c342fce";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
+<script>
+// 以下为完整的核心逻辑（包含所有防御性更新和百度统计事件埋点）
 const FOOD_DB = {
     dairy: [
         { name: "全脂奶", weight: 130, protein: 4, energy: 80, sodium: 70, potassium: 135, phosphorus: 110 },
