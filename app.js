@@ -142,6 +142,8 @@ const state = {
   profile: null,
   targets: null,
   communityModalOpen: false,
+  paymentModalOpen: false,
+  shareModalOpen: false,
   featureToastTimer: null,
   mealSelections: {
     breakfast: 0,
@@ -163,6 +165,12 @@ const state = {
 };
 
 const mealKeyOrder = ["breakfast", "lunch", "dinner", "snack"];
+
+function getViewFromHash() {
+  const hash = window.location.hash.replace(/^#/, "").trim();
+  if (["home", "labs", "plan", "community"].includes(hash)) return hash;
+  return "home";
+}
 
 function inferStage(egfr) {
   if (!egfr && egfr !== 0) return 3;
@@ -339,6 +347,9 @@ function setActiveView(view) {
   };
   const pageName = pageNameMap[view];
   if (!pageName) return;
+  if (window.location.hash !== `#${view}`) {
+    window.history.replaceState(null, "", `#${view}`);
+  }
   analytics.trackPageView(pageName, { page_name: pageName });
 }
 
@@ -346,7 +357,99 @@ function setCommunityModal(open) {
   state.communityModalOpen = open;
   const modal = document.getElementById("community-modal");
   modal.hidden = !open;
-  document.body.style.overflow = open ? "hidden" : "";
+  updateBodyScrollLock();
+}
+
+function setPaymentModal(open) {
+  state.paymentModalOpen = open;
+  const modal = document.getElementById("payment-modal");
+  if (!modal) return;
+  modal.hidden = !open;
+  updateBodyScrollLock();
+}
+
+function updateBodyScrollLock() {
+  document.body.style.overflow = state.communityModalOpen || state.paymentModalOpen || state.shareModalOpen ? "hidden" : "";
+}
+
+function setShareModal(open) {
+  state.shareModalOpen = open;
+  const modal = document.getElementById("share-modal");
+  if (!modal) return;
+  if (open) {
+    syncShareModalContent();
+  }
+  modal.hidden = !open;
+  updateBodyScrollLock();
+}
+
+function getShareRecommendationText() {
+  return "CKD 肾友智能营养助手，根据基础情况和化验指标生成食谱建议，帮助未接受透析治疗的 CKD 1-5期肾友更清楚地规划每日饮食，扫码加入肾友社区交流经验。";
+}
+
+function getShareMeals() {
+  return {
+    breakfast: getSelectedMeal("breakfast")?.title || "未生成",
+    lunch: getSelectedMeal("lunch")?.title || "未生成",
+    dinner: getSelectedMeal("dinner")?.title || "未生成",
+    snack: getSelectedMeal("snack")?.title || "未生成",
+  };
+}
+
+function getShareMessage(includeUrl = false) {
+  const meals = getShareMeals();
+  const recommendation = getShareRecommendationText();
+  const parts = [
+    "我今天的 CKD 饮食方案",
+    "",
+    `早餐：${meals.breakfast}`,
+    `午餐：${meals.lunch}`,
+    `晚餐：${meals.dinner}`,
+    `加餐：${meals.snack}`,
+    "",
+    recommendation,
+  ];
+
+  if (includeUrl) {
+    parts.push("", window.location.origin + window.location.pathname);
+  }
+
+  return parts.join("\n");
+}
+
+function syncShareModalContent() {
+  const meals = getShareMeals();
+  const mealSummary = document.getElementById("share-meal-summary");
+  const recommendation = document.getElementById("share-recommendation-text");
+  if (mealSummary) {
+    mealSummary.innerHTML = `
+      <div>早餐：${meals.breakfast}</div>
+      <div>午餐：${meals.lunch}</div>
+      <div>晚餐：${meals.dinner}</div>
+      <div>加餐：${meals.snack}</div>
+    `;
+  }
+  if (recommendation) {
+    recommendation.textContent = getShareRecommendationText();
+  }
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const fallback = document.createElement("textarea");
+  fallback.value = text;
+  fallback.setAttribute("readonly", "");
+  fallback.style.position = "absolute";
+  fallback.style.left = "-9999px";
+  document.body.appendChild(fallback);
+  fallback.select();
+  const result = document.execCommand("copy");
+  document.body.removeChild(fallback);
+  return result;
 }
 
 function showFeatureToast(message = "敬请期待高阶版本") {
@@ -1069,6 +1172,25 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-close-payment]").forEach((node) => {
+    node.addEventListener("click", () => {
+      setPaymentModal(false);
+    });
+  });
+
+  const shareOpenButton = document.getElementById("share-open-btn");
+  if (shareOpenButton) {
+    shareOpenButton.addEventListener("click", () => {
+      setShareModal(true);
+    });
+  }
+
+  document.querySelectorAll("[data-close-share]").forEach((node) => {
+    node.addEventListener("click", () => {
+      setShareModal(false);
+    });
+  });
+
   document.getElementById("lab-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const profile = parseForm(event.currentTarget);
@@ -1143,13 +1265,63 @@ function bindEvents() {
         entry_location: node.dataset.premiumLocation || state.activeView,
         button_label: node.textContent.trim(),
       });
+      if (node.dataset.premiumFeature === "community_premium_service") {
+        setPaymentModal(true);
+        return;
+      }
       showFeatureToast();
+    });
+  });
+
+  document.querySelectorAll("[data-share-action]").forEach((node) => {
+    node.addEventListener("click", async () => {
+      const shareUrl = window.location.origin + window.location.pathname;
+      const shareText = getShareMessage(false);
+      const shareMessage = getShareMessage(true);
+      const action = node.dataset.shareAction;
+
+      try {
+        if (action === "copy-link") {
+          await copyTextToClipboard(shareUrl);
+          showFeatureToast("链接已复制，快去分享给亲友");
+          return;
+        }
+
+        if (action === "copy-text") {
+          await copyTextToClipboard(shareMessage);
+          showFeatureToast("推荐文案已复制");
+          return;
+        }
+
+        if (action === "native-share") {
+          if (navigator.share) {
+            await navigator.share({
+              title: "我今天的 CKD 饮食方案",
+              text: shareText,
+              url: shareUrl,
+            });
+            showFeatureToast("已打开系统分享");
+          } else {
+            await copyTextToClipboard(shareMessage);
+            showFeatureToast("当前浏览器不支持系统分享，已复制推荐文案");
+          }
+        }
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+        showFeatureToast("分享失败，请稍后再试");
+      }
     });
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.communityModalOpen) {
       setCommunityModal(false);
+    }
+    if (event.key === "Escape" && state.paymentModalOpen) {
+      setPaymentModal(false);
+    }
+    if (event.key === "Escape" && state.shareModalOpen) {
+      setShareModal(false);
     }
   });
 }
@@ -1169,7 +1341,7 @@ async function initApp() {
   seedDemo();
   bindEvents();
   analytics.bootstrap();
-  setActiveView("home");
+  setActiveView(getViewFromHash());
 }
 
 initApp();
